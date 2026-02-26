@@ -170,7 +170,6 @@ Present in this structure:
 4. **解决的核心问题** — What pain point does it address?
 5. **与现有方案的差异** — Why would users switch to this?
 6. **关键挑战与风险** — What could go wrong? What's hardest?
-7. **建议的第一步** — What's the smallest thing to build/validate first?
 
 Ask the user if this direction resonates. Be ready to adjust or pivot based on feedback.
 
@@ -178,7 +177,7 @@ Ask the user if this direction resonates. Be ready to adjust or pivot based on f
 
 After the user confirms the direction, generate a discovery report.
 
-**Save to:** `docs/discovery/YYYY-MM-DD-<topic>-discovery.md`
+**Save to:** `<CWD>/docs/discovery/YYYY-MM-DD-<topic>-discovery.md` where `<CWD>` is the user's current working directory (the primary working directory shown in the environment info). Do NOT resolve the path relative to this skill file or the project root — always use the user's CWD as the base.
 
 **Template:**
 
@@ -207,25 +206,25 @@ After the user confirms the direction, generate a discovery report.
 
 [What makes this different and valuable]
 
-## Competitive Landscape
+## User Scenarios
 
-[Key competitors/alternatives and differentiation]
+### Scenario 1: [Scenario Name]
+- **Context:** [When and where does this scenario happen? What is the user doing? What triggers them to use the product?]
+- **User Goal:** [What does the user want to achieve in this scenario?]
+- **Expected Experience:** [Step-by-step: what does the user see and do? What feedback does the product provide?]
+- **Exception Handling:** [What could go wrong? How does the product handle errors, edge cases, or unexpected input?]
 
-## Technical Feasibility Assessment
+### Scenario 2: [Scenario Name]
+- **Context:** [Scenario trigger and situation]
+- **User Goal:** [What the user wants to achieve]
+- **Expected Experience:** [Normal flow description]
+- **Exception Handling:** [Error and edge case handling]
 
-[Can it be built? Key technical challenges]
-
-## Business Viability
-
-[Revenue model, willingness to pay, go-to-market]
+[Add more scenarios as needed — aim for 3-5 core scenarios covering the most common and critical user journeys]
 
 ## Key Risks & Challenges
 
 [Top 3-5 risks with mitigation ideas]
-
-## Recommended First Step
-
-[MVP definition or validation experiment]
 
 ## Open Questions
 
