@@ -181,6 +181,11 @@ Ask the user if this direction resonates. Be ready to adjust or pivot based on f
 
 After the user confirms the direction, generate a discovery report.
 
+### Audience & Purpose
+
+- **Target audience:** Product managers who will use this report to write a PRD
+- **Downstream usage:** This report is the direct input for the `prd-writer` skill. Ensure all sections contain enough detail and clarity for a product manager to transform them into formal product requirements without needing to re-discover context.
+
 **Save to:** `<CWD>/docs/discovery/YYYY-MM-DD-<topic>-discovery.md` where `<CWD>` is the user's current working directory (the primary working directory shown in the environment info). Do NOT resolve the path relative to this skill file or the project root — always use the user's CWD as the base.
 
 **Template:**
