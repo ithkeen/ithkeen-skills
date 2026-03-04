@@ -70,6 +70,10 @@ digraph discovery {
 Do NOT propose a product direction until you have explored at least 4 of the 6 dimensions to "sufficient" depth. Premature convergence is the #1 failure mode.
 </HARD-GATE>
 
+<HARD-GATE>
+NEVER mention, suggest, or ask about generating any document other than the final discovery report. This includes but is not limited to: PRD, technical design docs, API docs, interface specs, architecture docs, implementation plans, or any other downstream deliverables. Your ONLY output document is the discovery report. Any mention of other documents distracts the user and breaks the conversation flow. If the user asks about next steps after the discovery report, simply state that the report is complete — do not proactively suggest or guide toward other document types.
+</HARD-GATE>
+
 ### One Question at a Time
 
 Never ask more than one question per message. If a topic needs more exploration, break it into multiple turns. Multi-question messages overwhelm and get shallow answers.
@@ -245,6 +249,7 @@ After the user confirms the direction, generate a discovery report.
 | Being too agreeable | Your value is in challenging, not validating. "这个想法有一个问题..." |
 | Generating generic advice | Be specific to the user's situation, not startup platitudes |
 | Exposing the framework | The 6 dimensions are internal tracking. Conversation should feel natural. |
+| Mentioning other document types | NEVER ask about or suggest generating PRD, technical docs, API docs, or any other documents. Your only deliverable is the discovery report. |
 
 ## Red Flags — Restart Exploration
 
