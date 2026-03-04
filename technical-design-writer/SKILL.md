@@ -44,15 +44,18 @@ digraph technical_design {
     node [shape=box];
 
     start [label="Read PRD document" shape=doublecircle];
-    phase1 [label="Phase 1: PRD Deep Analysis\nCheck 12 dimensions"];
+    phase1 [label="Phase 1: PRD Deep Analysis\nCheck 12 dimensions\n(track PRD deviations)"];
     gap_check [label="All dimensions\nsufficient?" shape=diamond];
     ask_user [label="Ask user about\nmissing dimension\n(one at a time)"];
-    phase2 [label="Phase 2: Tech Stack Selection\nArchitect-led proposals"];
+    phase2 [label="Phase 2: Tech Stack Selection\nArchitect-led proposals\n(track PRD deviations)"];
     tech_confirm [label="All tech decisions\nconfirmed?" shape=diamond];
-    phase3 [label="Phase 3: Generate\nTechnical Design"];
+    phase3 [label="Phase 3: Generate\nTechnical Design\n(track PRD deviations)"];
     review [label="User approves?" shape=diamond];
     revise [label="Revise based\non feedback"];
-    output [label="Output final documents\nMaster + Module specs" shape=doublecircle];
+    output [label="Output final documents\nMaster + Module specs"];
+    has_changes [label="PRD deviations\nexist?" shape=diamond];
+    sync_upstream [label="Phase 4: Sync changes\nback to PRD &\nrequirements files"];
+    done [label="All documents\nfinalized" shape=doublecircle];
 
     start -> phase1;
     phase1 -> gap_check;
@@ -66,8 +69,35 @@ digraph technical_design {
     review -> revise [label="needs changes"];
     review -> output [label="approved"];
     revise -> review;
+    output -> has_changes;
+    has_changes -> done [label="no deviations"];
+    has_changes -> sync_upstream [label="has deviations"];
+    sync_upstream -> done;
 }
 ```
+
+## PRD Change Tracking (PRD 变更追踪)
+
+Throughout the entire technical design process (Phase 1–3 and user review), any finding that deviates from the original PRD content **MUST** be recorded in a change tracking table. Do NOT modify the PRD mid-process — accumulate all changes and sync at the end (Step 6).
+
+**When to record a change:**
+- Phase 1: User provides new information for `missing`/`partial` dimensions not in the original PRD
+- Phase 2: A tech feasibility analysis contradicts or adjusts a PRD assumption
+- Phase 3: Module design reveals that a PRD requirement is ambiguous, conflicting, or needs refinement
+- Step 5: User review produces requirement corrections or clarifications
+
+**Change tracking table format (maintain throughout the process):**
+
+| # | Source Phase | PRD Original | Revised Description | Reason | User Confirmed |
+|---|-------------|-------------|--------------------|---------|----|
+| 1 | Phase 1 - Dim 6 | (not mentioned) | 初期并发 500，峰值 2000 | PRD 未定义非功能需求 | ✅ |
+| 2 | Phase 2 | 使用 MySQL | 改为 PostgreSQL | 需要 JSONB 支持，MySQL 不满足 | ✅ |
+| 3 | Phase 3 | 用户模块含权限管理 | 权限拆为独立模块 | 职责单一原则，降低耦合 | ✅ |
+
+**Rules:**
+- Every entry MUST have user confirmation before it becomes effective
+- Record the original PRD text (or "not mentioned") verbatim — do not paraphrase
+- This table feeds directly into Step 6 (PRD Upstream Sync)
 
 ## Checklist
 
@@ -177,6 +207,51 @@ Do NOT proceed to Phase 3 until ALL tech stack decisions are confirmed by the us
 
 **Output:** Approved technical design documents saved to `docs/technical-design/`.
 
+### Step 6: PRD Upstream Sync (PRD 反向同步 — Phase 4)
+
+**Goal:** Sync all confirmed deviations back to the PRD and requirements description files, ensuring upstream documents stay consistent with the final technical design.
+
+**Prerequisite:** Step 5 completed — user has approved the technical design documents.
+
+**Actions:**
+
+1. **Review the change tracking table** — Gather all entries accumulated during Phase 1–3 and user review.
+
+2. **Classify changes** into three categories:
+   - **需求补充 (Requirement Addition):** Information the PRD lacked entirely (from `missing`/`partial` dimensions in Phase 1)
+   - **需求修正 (Requirement Correction):** Requirements adjusted due to technical feasibility (from Phase 2/3 analysis)
+   - **需求细化 (Requirement Refinement):** Business rules or constraints clarified during design (from Phase 3 module design)
+
+3. **Present change summary to user** — Show the classified list and ask which changes should be written back. The user may choose to skip some changes (e.g., purely technical details that don't belong in a PRD).
+
+4. **Modify the PRD file:**
+   - For each approved change, edit the relevant section in the PRD
+   - Mark each modification with a source tag: `<!-- [技术设计补充 YYYY-MM-DD] -->` or `[技术设计补充]` (inline)
+   - Preserve original PRD structure — add/modify sections, do not reorganize
+   - Add a change log entry at the end of the PRD file:
+
+   ```markdown
+   ## 变更记录 (Change Log)
+
+   | 日期 | 来源 | 变更内容 | 原因 |
+   |------|------|---------|------|
+   | YYYY-MM-DD | 技术设计评审 - Phase 1 | 补充非功能需求：并发500/峰值2000 | PRD 未定义 |
+   | YYYY-MM-DD | 技术设计评审 - Phase 2 | 数据库由 MySQL 改为 PostgreSQL | 需要 JSONB 支持 |
+   ```
+
+5. **Modify the requirements description file (if exists):**
+   - If the PRD was generated from a requirements description file (e.g., from `requirement-discovery`), also sync relevant changes back
+   - Only sync requirement-level changes (additions and corrections), NOT technical details
+   - Mark with: `[由技术设计评审补充 YYYY-MM-DD]`
+
+6. **Final confirmation** — Show the user what files were modified and a diff summary.
+
+<HARD-GATE>
+Do NOT skip this step even if you believe there are no changes. You MUST explicitly review the change tracking table and confirm with the user: "变更追踪表中共有 N 条记录，是否需要回写到 PRD？" If the table is empty, state that explicitly and get user confirmation to skip.
+</HARD-GATE>
+
+**Output:** Updated PRD file (and optionally requirements description file) with change log appended.
+
 ## Master Document Template (整体技术方案模板)
 
 Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-technical-design.md`
@@ -260,6 +335,7 @@ Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-technical-design.md
 ## 附录
 - 术语表
 - 参考文档
+- PRD 变更追踪记录（来自技术设计过程的变更追踪表）
 ```
 
 ## Module Document Template (模块技术方案模板)
@@ -348,6 +424,9 @@ Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-module-<module-name
 | Use outdated tech information | MUST use web search to verify tech currency for every selection |
 | Write module specs that only an expert can understand | Target regular developers — explain design patterns, provide examples, spell out edge cases |
 | Generate all documents without user review | Present design for review, incorporate feedback before finalizing |
+| Skip PRD upstream sync after design is approved | MUST review change tracking table and sync confirmed changes back to PRD |
+| Modify PRD mid-process during Phase 1-3 | Accumulate changes in tracking table, sync all at once in Step 6 |
+| Sync technical implementation details back to PRD | Only sync requirement-level changes (additions, corrections, refinements) |
 
 ## Red Flags — STOP and Check
 
@@ -359,13 +438,16 @@ If you catch yourself thinking:
 - "I'll write it first, imperfections can be fixed later" → **STOP.** You are the critical role. Quality now prevents rework later.
 - "The developer will figure out the details" → **STOP.** If it's not in the spec, it won't be implemented correctly.
 - "I'm pretty sure this version is current" → **STOP.** Use web search to verify.
+- "There are no PRD changes to sync" → **STOP.** You MUST explicitly review the change tracking table and confirm with the user.
+- "These changes are too minor to write back to the PRD" → **STOP.** Let the user decide what's worth syncing. Present all changes.
 
 ## Integration with Other Skills
 
 ```
-requirement-discovery → prd-writer → technical-design-writer → writing-plans
+requirement-discovery ⇄ prd-writer ⇄ technical-design-writer → code-implementer
                                           ▲ YOU ARE HERE
 ```
 
 - **Upstream:** Receives PRD from `prd-writer` or manually written PRD documents
-- **Downstream:** Output technical designs can feed into `writing-plans` for implementation task planning
+- **Upstream feedback:** When technical design reveals PRD gaps or inconsistencies, Step 6 syncs confirmed changes back to PRD (and optionally to the requirements description file from `requirement-discovery`)
+- **Downstream:** Output technical designs (master + module specs) feed into `code-implementer` for production code implementation
