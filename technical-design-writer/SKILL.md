@@ -49,12 +49,15 @@ digraph technical_design {
     ask_user [label="Ask user about\nmissing dimension\n(one at a time)"];
     phase2 [label="Phase 2: Tech Stack Selection\nArchitect-led proposals\n(track PRD deviations)"];
     tech_confirm [label="All tech decisions\nconfirmed?" shape=diamond];
-    phase3 [label="Phase 3: Generate\nTechnical Design\n(track PRD deviations)"];
+    module_def [label="Phase 3: Module Definition\nIdentify modules, boundaries,\ndependencies, dev order"];
+    module_confirm [label="User confirms\nmodule breakdown?" shape=diamond];
+    module_revise [label="Revise module\ndefinition"];
+    phase4 [label="Phase 4: Generate\nTechnical Design\n(track PRD deviations)"];
     review [label="User approves?" shape=diamond];
     revise [label="Revise based\non feedback"];
     output [label="Output final documents\nMaster + Module specs"];
     has_changes [label="PRD deviations\nexist?" shape=diamond];
-    sync_upstream [label="Phase 4: Sync changes\nback to PRD &\nrequirements files"];
+    sync_upstream [label="Phase 5: Sync changes\nback to PRD &\nrequirements files"];
     done [label="All documents\nfinalized" shape=doublecircle];
 
     start -> phase1;
@@ -64,8 +67,12 @@ digraph technical_design {
     ask_user -> gap_check [label="re-check"];
     phase2 -> tech_confirm;
     tech_confirm -> phase2 [label="adjust"];
-    tech_confirm -> phase3 [label="confirmed"];
-    phase3 -> review;
+    tech_confirm -> module_def [label="confirmed"];
+    module_def -> module_confirm;
+    module_confirm -> module_revise [label="needs changes"];
+    module_confirm -> phase4 [label="confirmed"];
+    module_revise -> module_confirm;
+    phase4 -> review;
     review -> revise [label="needs changes"];
     review -> output [label="approved"];
     revise -> review;
@@ -78,13 +85,14 @@ digraph technical_design {
 
 ## PRD Change Tracking (PRD 变更追踪)
 
-Throughout the entire technical design process (Phase 1–3 and user review), any finding that deviates from the original PRD content **MUST** be recorded in a change tracking table. Do NOT modify the PRD mid-process — accumulate all changes and sync at the end (Step 6).
+Throughout the entire technical design process (Phase 1–4 and user review), any finding that deviates from the original PRD content **MUST** be recorded in a change tracking table. Do NOT modify the PRD mid-process — accumulate all changes and sync at the end (Step 7).
 
 **When to record a change:**
 - Phase 1: User provides new information for `missing`/`partial` dimensions not in the original PRD
 - Phase 2: A tech feasibility analysis contradicts or adjusts a PRD assumption
-- Phase 3: Module design reveals that a PRD requirement is ambiguous, conflicting, or needs refinement
-- Step 5: User review produces requirement corrections or clarifications
+- Phase 3: Module definition reveals that a PRD requirement is ambiguous, conflicting, or needs refinement
+- Phase 4: Detailed design further exposes PRD issues
+- Step 6: User review produces requirement corrections or clarifications
 
 **Change tracking table format (maintain throughout the process):**
 
@@ -97,7 +105,7 @@ Throughout the entire technical design process (Phase 1–3 and user review), an
 **Rules:**
 - Every entry MUST have user confirmation before it becomes effective
 - Record the original PRD text (or "not mentioned") verbatim — do not paraphrase
-- This table feeds directly into Step 6 (PRD Upstream Sync)
+- This table feeds directly into Step 7 (PRD Upstream Sync)
 
 ## Checklist
 
@@ -171,17 +179,47 @@ Do NOT proceed to Phase 3 until ALL tech stack decisions are confirmed by the us
 
 **Output:** Complete tech stack overview table with all confirmed selections and rationale.
 
-### Step 4: Generate Technical Design (Phase 3)
+### Step 4: Module Definition & Confirmation (Phase 3)
 
-**Goal:** Produce the complete technical design documents.
+**Goal:** Define system module breakdown and get user confirmation BEFORE generating detailed technical specs.
+
+**Actions:**
+- Based on PRD analysis and confirmed tech stack, identify all modules in the system
+- For each module, define:
+  - **Module name** and short description
+  - **Responsibilities** (what it does)
+  - **Boundary** (what it does NOT do)
+  - **External interfaces** (high-level, not detailed signatures yet)
+  - **Dependencies** (which other modules it depends on)
+- Draw module dependency graph
+- Define recommended development order based on dependencies
+- Present the complete module overview table to the user for confirmation
+
+**Module Overview Table Format:**
+
+| 模块编号 | 模块名称 | 职责描述 | 边界（不负责） | 对外接口概述 | 依赖模块 | 开发优先级 |
+|---------|---------|---------|-------------|------------|---------|-----------|
+| M01 | 用户模块 | 用户注册、登录、信息管理 | 不含权限管理 | 注册/登录/用户信息 CRUD | 无 | P0 |
+| M02 | 权限模块 | 角色与权限管理 | 不含用户 CRUD | 权限校验/角色分配 | M01 | P0 |
+
+**Output:** Module overview table + dependency graph + development order, **presented to user for confirmation**.
+
+<HARD-GATE>
+Do NOT proceed to Phase 4 (detailed technical design generation) until the user has explicitly confirmed the module breakdown. If the user requests changes (add/remove/merge/split modules, adjust boundaries, change dependencies), revise and re-present until confirmed. Ask about concerns ONE topic at a time.
+</HARD-GATE>
+
+**For user confirmation, explicitly ask:** "以上是系统的模块划分方案，包含 N 个模块。请确认：1) 模块划分是否合理？是否需要增加、删除或合并模块？ 2) 各模块的职责边界是否清晰？ 3) 依赖关系和开发顺序是否合理？"
+
+### Step 5: Generate Technical Design (Phase 4)
+
+**Goal:** Produce the complete technical design documents based on **confirmed module definitions**.
 
 **Actions:**
 - Generate the master technical design document following the Master Document Template
-- Identify all modules and their dependencies
-- Generate per-module technical spec documents following the Module Document Template
+- For each **confirmed module**, generate per-module technical spec documents following the Module Document Template
 - Ensure every module spec is detailed enough that a developer (or AI) can implement it directly
 - Apply design principles throughout: modularity, low coupling, testability, extensibility
-- Define clear module development order based on dependency analysis
+- Module list and boundaries MUST match the user-confirmed module overview from Step 4
 
 **Design Principles to Apply:**
 
@@ -193,9 +231,9 @@ Do NOT proceed to Phase 3 until ALL tech stack decisions are confirmed by the us
 | **Extensibility** | Annotate extension points, explain how to add features without modifying existing code |
 | **Dev Order** | Dependency graph determines build sequence; no module starts before its dependencies |
 
-**Output:** Master document + per-module documents.
+**Output:** Master document + per-module documents (based on confirmed module list).
 
-### Step 5: User Review
+### Step 6: User Review
 
 **Goal:** Get user approval on the technical design.
 
@@ -207,20 +245,20 @@ Do NOT proceed to Phase 3 until ALL tech stack decisions are confirmed by the us
 
 **Output:** Approved technical design documents saved to `docs/technical-design/`.
 
-### Step 6: PRD Upstream Sync (PRD 反向同步 — Phase 4)
+### Step 7: PRD Upstream Sync (PRD 反向同步 — Phase 5)
 
 **Goal:** Sync all confirmed deviations back to the PRD and requirements description files, ensuring upstream documents stay consistent with the final technical design.
 
-**Prerequisite:** Step 5 completed — user has approved the technical design documents.
+**Prerequisite:** Step 6 completed — user has approved the technical design documents.
 
 **Actions:**
 
-1. **Review the change tracking table** — Gather all entries accumulated during Phase 1–3 and user review.
+1. **Review the change tracking table** — Gather all entries accumulated during Phase 1–4 and user review.
 
 2. **Classify changes** into three categories:
    - **需求补充 (Requirement Addition):** Information the PRD lacked entirely (from `missing`/`partial` dimensions in Phase 1)
    - **需求修正 (Requirement Correction):** Requirements adjusted due to technical feasibility (from Phase 2/3 analysis)
-   - **需求细化 (Requirement Refinement):** Business rules or constraints clarified during design (from Phase 3 module design)
+   - **需求细化 (Requirement Refinement):** Business rules or constraints clarified during design (from Phase 3/4 module design)
 
 3. **Present change summary to user** — Show the classified list and ask which changes should be written back. The user may choose to skip some changes (e.g., purely technical details that don't belong in a PRD).
 
@@ -424,8 +462,9 @@ Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-module-<module-name
 | Use outdated tech information | MUST use web search to verify tech currency for every selection |
 | Write module specs that only an expert can understand | Target regular developers — explain design patterns, provide examples, spell out edge cases |
 | Generate all documents without user review | Present design for review, incorporate feedback before finalizing |
+| Skip module confirmation and jump to detailed design | MUST get user confirmation on module breakdown BEFORE generating detailed specs — rework cost is enormous |
 | Skip PRD upstream sync after design is approved | MUST review change tracking table and sync confirmed changes back to PRD |
-| Modify PRD mid-process during Phase 1-3 | Accumulate changes in tracking table, sync all at once in Step 6 |
+| Modify PRD mid-process during Phase 1-4 | Accumulate changes in tracking table, sync all at once in Step 7 |
 | Sync technical implementation details back to PRD | Only sync requirement-level changes (additions, corrections, refinements) |
 
 ## Red Flags — STOP and Check
@@ -437,6 +476,7 @@ If you catch yourself thinking:
 - "This module is too simple for a separate spec" → **STOP.** Every module gets a complete spec.
 - "I'll write it first, imperfections can be fixed later" → **STOP.** You are the critical role. Quality now prevents rework later.
 - "The developer will figure out the details" → **STOP.** If it's not in the spec, it won't be implemented correctly.
+- "The module breakdown is obvious, no need to confirm" → **STOP.** You MUST present module definitions and get explicit user confirmation. Wrong modules = all detailed specs wasted.
 - "I'm pretty sure this version is current" → **STOP.** Use web search to verify.
 - "There are no PRD changes to sync" → **STOP.** You MUST explicitly review the change tracking table and confirm with the user.
 - "These changes are too minor to write back to the PRD" → **STOP.** Let the user decide what's worth syncing. Present all changes.
@@ -449,5 +489,5 @@ requirement-discovery ⇄ prd-writer ⇄ technical-design-writer → code-implem
 ```
 
 - **Upstream:** Receives PRD from `prd-writer` or manually written PRD documents
-- **Upstream feedback:** When technical design reveals PRD gaps or inconsistencies, Step 6 syncs confirmed changes back to PRD (and optionally to the requirements description file from `requirement-discovery`)
+- **Upstream feedback:** When technical design reveals PRD gaps or inconsistencies, Step 7 syncs confirmed changes back to PRD (and optionally to the requirements description file from `requirement-discovery`)
 - **Downstream:** Output technical designs (master + module specs) feed into `code-implementer` for production code implementation
