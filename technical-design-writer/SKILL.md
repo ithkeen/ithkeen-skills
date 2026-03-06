@@ -47,11 +47,11 @@ digraph technical_design {
     phase1 [label="Phase 1: PRD Deep Analysis\nCheck 12 dimensions\n(track PRD deviations)"];
     gap_check [label="All dimensions\nsufficient?" shape=diamond];
     ask_user [label="Ask user about\nmissing dimension\n(one at a time)"];
-    phase2 [label="Phase 2: Tech Stack Selection\nArchitect-led proposals\n(track PRD deviations)"];
-    tech_confirm [label="All tech decisions\nconfirmed?" shape=diamond];
-    module_def [label="Phase 3: Module Definition\nIdentify modules, boundaries,\ndependencies, dev order"];
+    module_def [label="Phase 2: Module Definition\nIdentify modules, boundaries,\ndependencies, dev order"];
     module_confirm [label="User confirms\nmodule breakdown?" shape=diamond];
     module_revise [label="Revise module\ndefinition"];
+    tech_stack [label="Phase 3: Tech Stack Selection\nGlobal + module-driven\n(track PRD deviations)"];
+    tech_confirm [label="All tech decisions\nconfirmed?" shape=diamond];
     phase4 [label="Phase 4: Generate\nTechnical Design\n(track PRD deviations)"];
     review [label="User approves?" shape=diamond];
     revise [label="Revise based\non feedback"];
@@ -63,15 +63,15 @@ digraph technical_design {
     start -> phase1;
     phase1 -> gap_check;
     gap_check -> ask_user [label="missing/partial"];
-    gap_check -> phase2 [label="all sufficient"];
+    gap_check -> module_def [label="all sufficient"];
     ask_user -> gap_check [label="re-check"];
-    phase2 -> tech_confirm;
-    tech_confirm -> phase2 [label="adjust"];
-    tech_confirm -> module_def [label="confirmed"];
     module_def -> module_confirm;
     module_confirm -> module_revise [label="needs changes"];
-    module_confirm -> phase4 [label="confirmed"];
+    module_confirm -> tech_stack [label="confirmed"];
     module_revise -> module_confirm;
+    tech_stack -> tech_confirm;
+    tech_confirm -> tech_stack [label="adjust"];
+    tech_confirm -> phase4 [label="confirmed"];
     phase4 -> review;
     review -> revise [label="needs changes"];
     review -> output [label="approved"];
@@ -89,8 +89,8 @@ Throughout the entire technical design process (Phase 1–4 and user review), an
 
 **When to record a change:**
 - Phase 1: User provides new information for `missing`/`partial` dimensions not in the original PRD
-- Phase 2: A tech feasibility analysis contradicts or adjusts a PRD assumption
-- Phase 3: Module definition reveals that a PRD requirement is ambiguous, conflicting, or needs refinement
+- Phase 2: Module definition reveals that a PRD requirement is ambiguous, conflicting, or needs refinement
+- Phase 3: A tech feasibility analysis contradicts or adjusts a PRD assumption
 - Phase 4: Detailed design further exposes PRD issues
 - Step 6: User review produces requirement corrections or clarifications
 
@@ -99,8 +99,8 @@ Throughout the entire technical design process (Phase 1–4 and user review), an
 | # | Source Phase | PRD Original | Revised Description | Reason | User Confirmed |
 |---|-------------|-------------|--------------------|---------|----|
 | 1 | Phase 1 - Dim 6 | (not mentioned) | 初期并发 500，峰值 2000 | PRD 未定义非功能需求 | ✅ |
-| 2 | Phase 2 | 使用 MySQL | 改为 PostgreSQL | 需要 JSONB 支持，MySQL 不满足 | ✅ |
-| 3 | Phase 3 | 用户模块含权限管理 | 权限拆为独立模块 | 职责单一原则，降低耦合 | ✅ |
+| 2 | Phase 2 | 用户模块含权限管理 | 权限拆为独立模块 | 职责单一原则，降低耦合 | ✅ |
+| 3 | Phase 3 | 使用 MySQL | 改为 PostgreSQL | 需要 JSONB 支持，MySQL 不满足 | ✅ |
 
 **Rules:**
 - Every entry MUST have user confirmation before it becomes effective
@@ -158,12 +158,47 @@ Do NOT proceed to Phase 2 until ALL dimensions are either `sufficient` or `parti
 
 **For `partial` dimensions:** State your assumption clearly, ask the user to confirm or correct. Example: "关于并发量，PRD 中未明确说明。基于产品类型，我假设初期并发用户约 500，峰值约 2000。这个假设合理吗？"
 
-### Step 3: Tech Stack Selection (Phase 2)
+### Step 3: Module Definition & Confirmation (Phase 2)
 
-**Goal:** Drive tech stack decisions with the user through architect-led proposals.
+**Goal:** Define system module breakdown and get user confirmation BEFORE tech stack selection and detailed technical specs.
 
 **Actions:**
-- Based on PRD analysis, identify all tech decisions needed (language, framework, database, middleware, infrastructure, etc.)
+- Based on PRD analysis results, identify all modules in the system from a **business responsibility** perspective
+- For each module, define:
+  - **Module name** and short description
+  - **Responsibilities** (what it does — business functions)
+  - **Boundary** (what it does NOT do — clear exclusions)
+  - **External interfaces** (high-level capability description, not detailed signatures yet)
+  - **Dependencies** (which other modules it depends on)
+  - **Technical requirements hint** (special tech needs this module implies, e.g., "needs real-time push", "needs full-text search", "needs async task processing" — these feed into Phase 3 tech stack selection)
+- Draw module dependency graph
+- Define recommended development order based on dependencies
+- Present the complete module overview table to the user for confirmation
+- Discuss each module's responsibility and boundary **in detail** with the user — do not rush through
+
+**Module Overview Table Format:**
+
+| 模块编号 | 模块名称 | 职责描述 | 边界（不负责） | 对外接口概述 | 依赖模块 | 技术需求提示 | 开发优先级 |
+|---------|---------|---------|-------------|------------|---------|------------|-----------|
+| M01 | 用户模块 | 用户注册、登录、信息管理 | 不含权限管理 | 注册/登录/用户信息 CRUD | 无 | 无特殊需求 | P0 |
+| M02 | 通知模块 | 站内信、邮件、推送通知 | 不含消息模板管理 | 发送通知/查询通知 | M01 | 需要消息队列、WebSocket | P1 |
+
+**Output:** Module overview table + dependency graph + development order, **presented to user for detailed confirmation**.
+
+<HARD-GATE>
+Do NOT proceed to Phase 3 (tech stack selection) until the user has explicitly confirmed the module breakdown. If the user requests changes (add/remove/merge/split modules, adjust boundaries, change dependencies), revise and re-present until confirmed. Discuss each module's responsibility and boundary ONE topic at a time — do not batch all modules for a single confirmation.
+</HARD-GATE>
+
+**For user confirmation, explicitly ask:** "以上是系统的模块划分方案，包含 N 个模块。请逐一确认：1) 每个模块的职责描述是否准确？ 2) 模块间的边界是否清晰？是否有职责遗漏或重叠？ 3) 是否需要增加、删除或合并模块？ 4) 依赖关系和开发顺序是否合理？"
+
+### Step 4: Tech Stack Selection (Phase 3)
+
+**Goal:** Drive tech stack decisions with the user through architect-led proposals, **informed by confirmed module definitions**.
+
+**Actions:**
+
+**Part 1 — Global tech decisions (not module-specific):**
+- Identify global tech decisions needed: programming language, main framework, primary database, deployment platform, etc.
 - For each decision, propose 2-3 candidates with a comparison table:
   - Strengths and weaknesses
   - Fit for this specific project
@@ -171,44 +206,22 @@ Do NOT proceed to Phase 2 until ALL dimensions are either `sufficient` or `parti
   - Your recommendation with reasoning
 - Use **web search** to verify tech currency (latest stable versions, deprecation status, known issues, community health)
 - Discuss ONE tech decision per message
-- After all decisions confirmed, present a complete tech stack overview table
+
+**Part 2 — Module-driven tech decisions:**
+- Review the confirmed module list and their **technical requirements hints** from Step 3
+- Identify module-specific tech needs: message queues, caches, search engines, WebSocket libraries, task schedulers, special storage engines, etc.
+- For each module-driven tech need, propose candidates with comparison
+- Map each tech decision back to the module(s) that require it
+
+- After all decisions confirmed, present a **complete tech stack overview table** organized by:
+  1. Global tech stack
+  2. Module-specific tech stack (with module reference)
 
 <HARD-GATE>
-Do NOT proceed to Phase 3 until ALL tech stack decisions are confirmed by the user. You MUST use web search to verify any technology information you are not certain about — do not rely on potentially outdated knowledge. Ask ONE tech decision at a time.
+Do NOT proceed to Phase 4 until ALL tech stack decisions are confirmed by the user. You MUST use web search to verify any technology information you are not certain about — do not rely on potentially outdated knowledge. Ask ONE tech decision at a time. You MUST review EVERY module's technical requirements hint — do not skip any module.
 </HARD-GATE>
 
-**Output:** Complete tech stack overview table with all confirmed selections and rationale.
-
-### Step 4: Module Definition & Confirmation (Phase 3)
-
-**Goal:** Define system module breakdown and get user confirmation BEFORE generating detailed technical specs.
-
-**Actions:**
-- Based on PRD analysis and confirmed tech stack, identify all modules in the system
-- For each module, define:
-  - **Module name** and short description
-  - **Responsibilities** (what it does)
-  - **Boundary** (what it does NOT do)
-  - **External interfaces** (high-level, not detailed signatures yet)
-  - **Dependencies** (which other modules it depends on)
-- Draw module dependency graph
-- Define recommended development order based on dependencies
-- Present the complete module overview table to the user for confirmation
-
-**Module Overview Table Format:**
-
-| 模块编号 | 模块名称 | 职责描述 | 边界（不负责） | 对外接口概述 | 依赖模块 | 开发优先级 |
-|---------|---------|---------|-------------|------------|---------|-----------|
-| M01 | 用户模块 | 用户注册、登录、信息管理 | 不含权限管理 | 注册/登录/用户信息 CRUD | 无 | P0 |
-| M02 | 权限模块 | 角色与权限管理 | 不含用户 CRUD | 权限校验/角色分配 | M01 | P0 |
-
-**Output:** Module overview table + dependency graph + development order, **presented to user for confirmation**.
-
-<HARD-GATE>
-Do NOT proceed to Phase 4 (detailed technical design generation) until the user has explicitly confirmed the module breakdown. If the user requests changes (add/remove/merge/split modules, adjust boundaries, change dependencies), revise and re-present until confirmed. Ask about concerns ONE topic at a time.
-</HARD-GATE>
-
-**For user confirmation, explicitly ask:** "以上是系统的模块划分方案，包含 N 个模块。请确认：1) 模块划分是否合理？是否需要增加、删除或合并模块？ 2) 各模块的职责边界是否清晰？ 3) 依赖关系和开发顺序是否合理？"
+**Output:** Complete tech stack overview table with all confirmed selections, rationale, and module mapping.
 
 ### Step 5: Generate Technical Design (Phase 4)
 
@@ -219,7 +232,7 @@ Do NOT proceed to Phase 4 (detailed technical design generation) until the user 
 - For each **confirmed module**, generate per-module technical spec documents following the Module Document Template
 - Ensure every module spec is detailed enough that a developer (or AI) can implement it directly
 - Apply design principles throughout: modularity, low coupling, testability, extensibility
-- Module list and boundaries MUST match the user-confirmed module overview from Step 4
+- Module list and boundaries MUST match the user-confirmed module overview from Step 3
 
 **Design Principles to Apply:**
 
@@ -258,7 +271,7 @@ Do NOT proceed to Phase 4 (detailed technical design generation) until the user 
 2. **Classify changes** into three categories:
    - **需求补充 (Requirement Addition):** Information the PRD lacked entirely (from `missing`/`partial` dimensions in Phase 1)
    - **需求修正 (Requirement Correction):** Requirements adjusted due to technical feasibility (from Phase 2/3 analysis)
-   - **需求细化 (Requirement Refinement):** Business rules or constraints clarified during design (from Phase 3/4 module design)
+   - **需求细化 (Requirement Refinement):** Business rules or constraints clarified during design (from Phase 2/4 module design)
 
 3. **Present change summary to user** — Show the classified list and ask which changes should be written back. The user may choose to skip some changes (e.g., purely technical details that don't belong in a PRD).
 
@@ -453,7 +466,7 @@ Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-module-<module-name
 | Mistake | Correct Approach |
 |---------|-----------------|
 | Batch 5 questions at once, overwhelming the user | Ask ONE question per message, wait for response |
-| Skip PRD analysis and jump to tech design | MUST complete 12-dimension check first, no `missing` allowed |
+| Skip PRD analysis and jump to module definition or tech design | MUST complete 12-dimension check first, no `missing` allowed |
 | Propose only one tech option | Always provide 2-3 candidates with comparison table |
 | Module design is abstract — concepts only, no details | Every module MUST include interface signatures, data structures, test cases |
 | Ignore module dependencies | MUST draw dependency graph and define development order |
@@ -463,6 +476,7 @@ Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-module-<module-name
 | Write module specs that only an expert can understand | Target regular developers — explain design patterns, provide examples, spell out edge cases |
 | Generate all documents without user review | Present design for review, incorporate feedback before finalizing |
 | Skip module confirmation and jump to detailed design | MUST get user confirmation on module breakdown BEFORE generating detailed specs — rework cost is enormous |
+| Select tech stack before defining modules | MUST define and confirm modules first — tech stack serves modules, not the other way around. Module-level tech needs (message queue, cache, etc.) can only be identified after modules are defined |
 | Skip PRD upstream sync after design is approved | MUST review change tracking table and sync confirmed changes back to PRD |
 | Modify PRD mid-process during Phase 1-4 | Accumulate changes in tracking table, sync all at once in Step 7 |
 | Sync technical implementation details back to PRD | Only sync requirement-level changes (additions, corrections, refinements) |
@@ -472,7 +486,8 @@ Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-module-<module-name
 If you catch yourself thinking:
 
 - "This PRD is very clear, I can skip analysis" → **STOP.** You MUST check all 12 dimensions regardless.
-- "The tech stack is obvious, no need to discuss" → **STOP.** You MUST propose candidates and get user confirmation.
+- "The tech stack is obvious, no need to discuss" → **STOP.** You MUST propose candidates and get user confirmation. Review every module's tech requirements hint.
+- "I can pick the tech stack before knowing the modules" → **STOP.** Modules come first. Tech stack must be informed by module-level needs — otherwise you'll miss middleware, caches, queues, etc.
 - "This module is too simple for a separate spec" → **STOP.** Every module gets a complete spec.
 - "I'll write it first, imperfections can be fixed later" → **STOP.** You are the critical role. Quality now prevents rework later.
 - "The developer will figure out the details" → **STOP.** If it's not in the spec, it won't be implemented correctly.
