@@ -21,8 +21,7 @@ Read technical design documents and produce high-quality production code, one mo
 
 ## When NOT to Use
 
-- Requirements are still vague → use `requirement-discovery`
-- PRD hasn't been written → use `prd-writer`
+- Requirements are still vague or product spec hasn't been written → use `product-spec`
 - Technical design hasn't been written → use `technical-design-writer`
 - Pure code debugging or bug fixing → use `systematic-debugging`
 
@@ -307,7 +306,7 @@ If you catch yourself thinking:
 ## Integration with Other Skills
 
 ```
-requirement-discovery → prd-writer → technical-design-writer → code-implementer
+product-spec → technical-design-writer → code-implementer
                                                                  ▲ YOU ARE HERE
 ```
 
