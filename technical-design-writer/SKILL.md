@@ -304,7 +304,7 @@ Do NOT skip this step even if you believe there are no changes. You MUST explici
 
 ## Master Document Template (整体技术方案模板)
 
-Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-technical-design.md`
+Output file: `<CWD>/docs/technical-design/<topic>.md`
 
 ```markdown
 # 技术方案：<项目名称>
@@ -390,7 +390,7 @@ Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-technical-design.md
 
 ## Module Document Template (模块技术方案模板)
 
-Output file: `<CWD>/docs/technical-design/YYYY-MM-DD-<topic>-module-<module-name>.md`
+Output file: `<CWD>/docs/technical-design/<topic>-<module-name>.md`
 
 ```markdown
 # 模块技术方案：<模块名称>
