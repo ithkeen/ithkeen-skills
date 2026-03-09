@@ -56,6 +56,8 @@ digraph code_implementer {
     regenerate [label="Regenerate plan\n(no user confirmation needed)"];
     implement [label="Step 7: Implement Code\nFollow plan, ask questions if uncertain"];
     self_review [label="Step 8: Self-Review Code\nQuality checklist"];
+    design_changed [label="Design changed\nduring implementation?" shape=diamond];
+    sync_design [label="Step 9: Sync Design Doc\nUpdate original + append change log"];
     done [label="Deliver code to user" shape=doublecircle];
 
     start -> context;
@@ -73,7 +75,10 @@ digraph code_implementer {
     regenerate -> plan;
     implement -> self_review;
     self_review -> implement [label="quality issues found"];
-    self_review -> done [label="all checks pass"];
+    self_review -> design_changed [label="all checks pass"];
+    design_changed -> sync_design [label="yes"];
+    design_changed -> done [label="no changes"];
+    sync_design -> done;
 }
 ```
 
@@ -150,6 +155,8 @@ Present concerns one at a time:
 ```
 
 **If no issues:** Confirm the design is sound and proceed.
+
+**Tracking design changes:** When alignment is reached on a design change, internally record what changed and why. This record will be used in Step 9 to sync the design document.
 
 ### Step 4: Tech Research
 
@@ -262,6 +269,50 @@ After the plan passes self-review, present it to the user and confirm before cod
 - Verify: does the code follow the project's existing conventions (if any)?
 - If issues found: fix them before presenting to the user
 
+### Step 9: Sync Design Document
+
+**Goal:** Keep the technical design document consistent with the actual implementation when design changes occurred.
+
+<HARD-GATE>
+If ANY design changes were discussed and agreed upon during the implementation process (Step 3 critique, Step 6 plan review, or ad-hoc discussions during coding), you MUST update the technical design document before delivering code. The design doc and the code must tell the same story.
+</HARD-GATE>
+
+**Trigger condition:** This step is only executed when design changes occurred. If the implementation followed the original design exactly, skip to delivery.
+
+**Actions:**
+
+**9a. Collect all design changes:**
+- Review all design discussions from Step 3 and any subsequent alignment conversations
+- List each change: what was the original design? What was agreed upon instead? Why?
+
+**9b. Update the original text:**
+- Locate the corresponding sections in the technical design document
+- Modify the original text to reflect the agreed-upon changes
+- Ensure the document reads coherently as if it were written with the new design from the start — no strikethroughs, no "originally we planned..." narrative
+
+**9c. Append Change Log:**
+- At the end of the technical design document, add or update a `## Change Log` section
+- Format:
+
+```markdown
+## Change Log
+
+### [日期] 实现阶段变更
+
+| 变更项 | 原设计 | 现设计 | 变更原因 |
+|--------|--------|--------|----------|
+| [具体部分] | [原方案摘要] | [新方案摘要] | [达成共识的理由] |
+```
+
+**Output:** Inform the user of the sync:
+```
+技术方案已同步更新：
+- 修改了 [N] 处设计内容：[变更点简要列表]
+- 已在文档末尾追加变更记录
+```
+
+### Delivery
+
 **Output:** Deliver the code with a brief summary:
 ```
 模块 [名称] 实现完成。
@@ -289,6 +340,7 @@ If you catch yourself thinking:
 - "代码能跑就行" → **STOP.** 可读性、扩展性、风格优雅缺一不可。
 - "用户不需要知道这个改动" → **STOP.** 任何与技术方案不符的决定必须沟通。
 - "这个设计模式虽然复杂但很酷" → **STOP.** 不过度设计，复杂度必须有明确的回报。
+- "技术方案改了但不用更新文档" → **STOP.** 代码和文档不一致是技术债，必须同步。
 
 ## Common Mistakes
 
@@ -302,12 +354,13 @@ If you catch yourself thinking:
 | Over-engineering for hypothetical futures | Only implement what the design specifies. Extension points only where designed. |
 | Ignoring existing codebase conventions | Explore existing code first. Match naming, structure, patterns. |
 | Writing code without asking questions | If uncertain about anything, ask. Better one question than one wrong assumption. |
+| Design changed but design doc not updated | If design changed during implementation, MUST sync the design doc in Step 9. Code and doc must match. |
 
 ## Integration with Other Skills
 
 ```
 product-spec → technical-design-writer → code-implementer
-                                                                 ▲ YOU ARE HERE
+                                              ▲ YOU ARE HERE
 ```
 
 - **Upstream:** Receives module-level technical design documents from `technical-design-writer`
