@@ -304,6 +304,7 @@ The implementation plan MUST be confirmed by the user before coding begins. Pres
 | Dimension | Standard |
 |-----------|---------|
 | **Readability** | Names are self-documenting. Functions have single responsibility. Logic flows top-to-bottom. No clever tricks that sacrifice clarity. |
+| **Documentation** | Open-source grade comments: every public interface, complex algorithm, and non-obvious design decision must have clear comments explaining WHY, not just WHAT. Follow project's comment language convention. |
 | **Extensibility** | Use appropriate patterns (strategy, factory, observer) only when the design calls for extension points. No speculative abstraction. |
 | **Code Style** | Follow the language community's conventions and the project's existing style. Consistent formatting, idiomatic constructs. |
 | **Error Handling** | Handle all boundary cases identified in the design. Error messages are meaningful and actionable. Fail fast on invalid state. |
