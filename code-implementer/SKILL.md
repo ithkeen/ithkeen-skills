@@ -51,9 +51,13 @@ digraph code_implementer {
     issue [label="Design issues found?" shape=diamond];
     discuss [label="Discuss with user\nGet alignment before proceeding"];
     research [label="Step 4: Tech Research\nWeb search + MCP check for emerging tech"];
-    plan [label="Step 5: Create Implementation Plan\nStep-by-step, layered"];
-    review_plan [label="Step 6: Self-Review Plan\nDoes it match the design?" shape=diamond];
-    regenerate [label="Regenerate plan\n(no user confirmation needed)"];
+    dep_check [label="Step 5a: Dependency Pre-check\nAll dependencies implemented?" shape=diamond];
+    dep_block [label="STOP: Tell user to\nimplement dependency first"];
+    plan [label="Step 5b-c: Create Implementation Plan\nFour-layer decomposition + spec mapping"];
+    review_plan [label="Step 6: Self-Review Plan\n5-point quantitative checklist" shape=diamond];
+    regenerate [label="Regenerate plan\n(internal loop)"];
+    user_confirm [label="User confirms plan?" shape=diamond];
+    user_revise [label="Revise plan per\nuser feedback"];
     implement [label="Step 7: Implement Code\nFollow plan, ask questions if uncertain"];
     self_review [label="Step 8: Self-Review Code\nQuality checklist"];
     design_changed [label="Design changed\nduring implementation?" shape=diamond];
@@ -68,11 +72,16 @@ digraph code_implementer {
     issue -> discuss [label="yes"];
     issue -> research [label="no"];
     discuss -> research [label="aligned"];
-    research -> plan;
+    research -> dep_check;
+    dep_check -> dep_block [label="unimplemented deps"];
+    dep_check -> plan [label="all deps ready"];
     plan -> review_plan;
-    review_plan -> regenerate [label="plan doesn't match design"];
-    review_plan -> implement [label="plan is solid"];
+    review_plan -> regenerate [label="any check fails"];
+    review_plan -> user_confirm [label="all 5 checks pass"];
     regenerate -> plan;
+    user_confirm -> user_revise [label="changes requested"];
+    user_confirm -> implement [label="confirmed"];
+    user_revise -> review_plan;
     implement -> self_review;
     self_review -> implement [label="quality issues found"];
     self_review -> design_changed [label="all checks pass"];
@@ -194,45 +203,89 @@ For ANY technology framework or library released or significantly updated within
 
 ### Step 5: Create Implementation Plan
 
-**Goal:** Create a step-by-step implementation plan before writing any code.
+**Goal:** Create a step-by-step implementation plan before writing any code, with full traceability to the module technical spec.
 
 **Actions:**
-- Break the module implementation into logical, incremental steps
-- Each step should be small enough to be independently verifiable
-- Order steps by dependency: foundational code first, then build upward
-- For each step, specify:
-  - What files will be created/modified
-  - What functions/classes will be implemented
-  - What the expected outcome is
 
-**Plan format:**
+**5a. Dependency pre-check (依赖前置检查):**
+
+- Check the module spec §1.3 (在系统中的位置) and §2.2 (依赖的外部接口) to identify all external module dependencies
+- Verify each dependency module's implementation status in the current codebase
+
+<HARD-GATE>
+If ANY dependency module is not yet implemented, you MUST STOP and tell the user. Do not proceed with mock/stub workarounds — ask the user to implement the dependency module first.
+
+```
+本模块依赖以下尚未实现的模块：
+- [模块名称]：[被依赖的接口/功能]
+
+建议先实现依赖模块，再回来实现本模块。请问先实现哪个依赖模块？
+```
+</HARD-GATE>
+
+**5b. Four-layer decomposition (四层拆解):**
+
+Break the module into implementation steps organized in four layers, bottom-up. Each layer maps to specific sections of the module technical spec:
+
+| Layer | What to Implement | Maps to Module Spec |
+|-------|-------------------|---------------------|
+| **Layer 1: Types & Data (类型与数据层)** | Type definitions, data models, DB schema, validation rules, constants | §3 数据结构 |
+| **Layer 2: Core Logic (核心逻辑层)** | Business flows, algorithms, state transitions, edge case handling | §4 核心逻辑 |
+| **Layer 3: Interface (接口实现层)** | External API/service interface implementations | §2 接口设计 (§2.1 对外接口) |
+| **Layer 4: Assembly (装配与导出层)** | Entry points, dependency injection, configuration, module exports | §5 模块内部结构 |
+
+**Layer 2 sub-splitting rule:** If the module spec §4.1 (业务流程图) describes multiple distinct flows, split Layer 2 into one step per flow rather than one monolithic step.
+
+**5c. Step template:**
+
+Each step MUST use this format:
+
 ```
 实现计划：
 
 1. [步骤名称]
+   - 方案映射：模块方案 §[章节号] [章节名]
    - 文件：[文件路径]
-   - 内容：[要实现的具体内容]
-   - 产出：[完成后可验证的结果]
+   - 实现内容：[具体函数/类/类型列表]
+   - 前置步骤：[依赖的步骤编号，无则填「无」]
+   - 验证标准：[具体验证方法]
 
 2. [步骤名称]
    ...
 ```
 
+**Allowed verification criteria (验证标准可选项):**
+- `类型检查/编译通过`
+- `单元测试通过：[列出测试用例名称]`
+- `接口签名与方案 §X.X 一致`
+- `数据模型与方案 §X.X 一致`
+- `业务流程与方案 §X.X 流程图一致`
+
+Do not use vague verification like "功能正常" or "代码完成" — every verification must be one of the above or equally specific.
+
 ### Step 6: Self-Review Plan
 
-**Goal:** Critically review the implementation plan before execution.
+**Goal:** Quantitatively review the implementation plan before presenting to the user.
 
-**Actions:**
-- Check: does the plan cover everything in the technical design for this module?
-- Check: is the step order correct (no forward dependencies)?
-- Check: are there missing steps (error handling, validation, edge cases)?
-- Check: does the plan stay within the module boundary?
+**Actions — 5-point checklist:**
+
+| # | Check | Method | Pass Criteria |
+|---|-------|--------|---------------|
+| 1 | **Coverage (覆盖率)** | Walk through module spec §2–§5, every sub-section must have at least one step mapped to it | Zero unmapped sections |
+| 2 | **Dependency Order (依赖序)** | Each step's "前置步骤" number must be less than its own number | No forward dependencies |
+| 3 | **Granularity (粒度)** | Count functions/classes per step | No step exceeds 3 functions/classes; split if over |
+| 4 | **Verification Specificity (验证标准)** | Each step's verification must be from the allowed list | No vague criteria |
+| 5 | **Edge Case Coverage (边界完整)** | Every item in module spec §4.4 (边界情况与异常处理) has a corresponding step | Zero unhandled edge cases |
 
 <HARD-GATE>
-If the plan doesn't fully align with the technical design, regenerate it. This self-review loop does NOT require user confirmation — iterate internally until the plan is solid. However, if you discover a design issue during this review, go back to Step 3 to discuss with the user.
+If ANY check fails, regenerate the plan internally. This self-review loop does NOT require user confirmation — iterate until all 5 checks pass. However, if you discover a design issue during this review, go back to Step 3 to discuss with the user.
 </HARD-GATE>
 
-After the plan passes self-review, present it to the user and confirm before coding.
+**After all 5 checks pass, present the plan to the user:**
+
+<HARD-GATE>
+The implementation plan MUST be confirmed by the user before coding begins. Present the complete plan and ask the user to review: step coverage, order, granularity, and verification criteria. If the user requests changes, revise the plan and re-run the 5-point self-review before presenting again.
+</HARD-GATE>
 
 ### Step 7: Implement Code
 
@@ -335,8 +388,8 @@ If you catch yourself thinking:
 - "这个技术我很熟悉，不需要查" → **STOP.** 必须 web search 验证，尤其是新兴技术。
 - "技术方案说的不太对，我直接改" → **STOP.** 必须和用户沟通，达成一致后才能改。
 - "这个功能顺便也实现了" → **STOP.** 检查是否超出单模块范围，超出则拒绝。
-- "先写完再说，计划不重要" → **STOP.** 必须先列计划、审视计划、再执行。
-- "这个边界情况应该不会出现" → **STOP.** 卓越工程师不做这种假设。
+- "先写完再说，计划不重要" → **STOP.** 必须先列计划、审视计划、用户确认、再执行。
+- "这个边界情况应该不会出现" → **STOP.** 卓越工程师不做这种假设。方案 §4.4 的每个边界必须有对应步骤。
 - "代码能跑就行" → **STOP.** 可读性、扩展性、风格优雅缺一不可。
 - "用户不需要知道这个改动" → **STOP.** 任何与技术方案不符的决定必须沟通。
 - "这个设计模式虽然复杂但很酷" → **STOP.** 不过度设计，复杂度必须有明确的回报。
@@ -350,10 +403,13 @@ If you catch yourself thinking:
 | Implement multiple modules at once | Single module per session. If scope is multi-module, stop and ask user to split. |
 | Silently change the technical design | Every deviation MUST be discussed with user first. |
 | Trust outdated tech knowledge | Web search for any tech with major updates in last 2 years. |
-| No implementation plan | MUST create plan, self-review, then execute. Plan is mandatory. |
+| No implementation plan | MUST create plan with four-layer decomposition, spec mapping, pass 5-point self-review, AND get user confirmation. |
 | Over-engineering for hypothetical futures | Only implement what the design specifies. Extension points only where designed. |
 | Ignoring existing codebase conventions | Explore existing code first. Match naming, structure, patterns. |
 | Writing code without asking questions | If uncertain about anything, ask. Better one question than one wrong assumption. |
+| Plan steps not traceable to design doc | Every step MUST have a 方案映射 field pointing to a specific module spec section. |
+| Vague verification criteria in plan | Verification must be specific: type check, unit test, interface match — never "功能正常". |
+| Implementing with unresolved dependencies | MUST check dependency modules are implemented before planning. Stop and redirect if not. |
 | Design changed but design doc not updated | If design changed during implementation, MUST sync the design doc in Step 9. Code and doc must match. |
 
 ## Integration with Other Skills
